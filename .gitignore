@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*keys.json
+flask_session/
 
 # C extensions
 *.so
