@@ -1,51 +1,26 @@
-import os
-import json
-from flask import Flask, render_template, redirect, request, session , jsonify
-from flask_session import Session
+from flask import Flask, render_template, redirect, request, session, jsonify
 from google.cloud import storage
 from tempfile import NamedTemporaryFile
+import os
+import uuid
 from preprocess_save_documents import preprocess_document
-from google.oauth2 import service_account
-from load_data_gcs import read_json_files_from_gcs
-from metadata_llm import generate_metadata
-from langchain_chroma import Chroma
 from chunking import unstructured_chunk_by_title
 from langchain_core.documents import Document
-from langchain.vectorstores import utils as chromautils
-from sentence_transformers import SentenceTransformer
-from langchain.vectorstores import Chroma
-from langchain.docstore.document import Document
-from langchain.vectorstores import utils as chromautils
+from vectorstore import pinecone_langc_doc, query_pinecone
+from embeddings import embed_doc
+from evaluation import evaluate_question_answer
 from gemini_final_answer import get_final_answer
-
-
 
 app = Flask(__name__)
 
 # Initialize GCS client
 key_path = "keys.json"
 client = storage.Client.from_service_account_json(key_path)
-# client = storage.Client(credentials=credentials)
 bucket_name = 'ai_llm'
 folder_name = 'test_pipeline1'
 
-
 elements = []
 documents = []
-
-# Initialize the SentenceTransformers model
-model_name = "all-MiniLM-L6-v2"
-embedding_model = SentenceTransformer(model_name)
-
-
-# Define a custom embedding class with the required method
-class CustomEmbeddings:
-    def embed_documents(self, texts):
-        return embedding_model.encode(texts).tolist()  # Convert to list
-
-    def embed_query(self, text):
-        return embedding_model.encode([text]).tolist()[0]  # Convert to list and return single embedding
-    
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -72,18 +47,15 @@ def upload():
         finally:
             os.remove(tmp_file_path)
 
-    chunks = unstructured_chunk_by_title(elements,2000,200)
-    idx = 0
-    print(len(chunks))
-    while idx<len(chunks):
-        element = chunks[idx]
+    chunks = unstructured_chunk_by_title(elements, 2000, 200)
+    for idx, element in enumerate(chunks):
         text = element.text
         metadata = element.metadata.to_dict()
         del metadata["languages"]
-        # metadata["source"] = metadata["filename"]
         documents.append(Document(page_content=text, metadata=metadata))
         print(f'Chunk {idx} Done')
-        idx+=1
+    
+    pinecone_langc_doc("example1", documents, "ns6")
 
     response = {
         "elements": len(documents),
@@ -94,21 +66,23 @@ def upload():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-
-    chat_history = request.json.get("history", [])
     user_question = request.json.get("query", "")
-    docs = chromautils.filter_complex_metadata(documents)  # try using vector store which supports list metadata as keywords are important
-    vectorstore = Chroma.from_documents(documents=docs, embedding=CustomEmbeddings())
-    retriever = vectorstore.as_retriever()
-    retrieved_docs  = retriever.get_relevant_documents(user_question)
-    context = "\n".join([f"{i+1}. {doc.page_content}" for i, doc in enumerate(retrieved_docs)])
-    answer = get_final_answer(context,user_question)
-    # Handle the chat history here
-    # For example, you can save it to a database or process it
-    return jsonify({"status": "success", "message": answer})
+    
+    output = query_pinecone("example1", user_question, "ns6", 4)
+    context = " ".join([f"({idx + 1}). {item['metadata']['text']}" for idx, item in enumerate(output)])
+    answer = get_final_answer(context, user_question)
+
+    ground_truth = answer
+    evaluation_results = evaluate_question_answer(user_question, ground_truth, answer, context)
+
+    evaluation_str = "\n".join([f"**{key}**: {value}\n" for key, value in evaluation_results.iloc[0].items()])
+    final_response = f"# Answer:\n {answer}\n\n # Evaluation:\n{evaluation_str}"
+
+    response = {
+        "status": "success",
+        "message": final_response
+    }
+    return jsonify(response)
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-

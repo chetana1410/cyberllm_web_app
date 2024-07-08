@@ -91,7 +91,7 @@ def upload_documents():
 
 def chat_interface():
     st.title("Chat Interface")
-    response = "Hello! I am CyberLLm. How can I assit you today"
+    response = "Hello! I am CyberLLM. How can I assit you today"
     with st.chat_message("AI"):
         st.markdown(response)
     # if not st.session_state.elements:
