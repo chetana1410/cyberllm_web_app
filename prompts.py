@@ -55,6 +55,25 @@ question : {query}
 assistant
 """
 
+generate_qa_prompt = """ 
+
+You are given a series of text chunks. Your task is to generate 10 Q&A pairs based on these chunks. Each question must be answerable by one specific chunk only. 
+
+
+
+Ensure that:
+1. Each question is clear and directly related to the content of one chunk.
+2. Each answer is concise and derived solely from the corresponding chunk.
+3. There are exactly 10 Q&A pairs in your response.
+4. The output must be a list  of dicts. Each dict must contain q and a as keys. 
+
+Here are the chunks for your reference:
+
+{chunkss}
+
+
+"""
+
 
 def cybermetric_prompts():
     llama_prompt = '''

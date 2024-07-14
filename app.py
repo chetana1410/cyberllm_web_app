@@ -10,7 +10,7 @@ from langchain_core.documents import Document
 from vectorstore import pinecone_langc_doc, query_pinecone
 from embeddings import embed_doc
 from evaluation import evaluate_question_answer
-from gemini_final_answer import get_final_answer
+from gemini_final_answer import get_final_answer, generate_qa
 
 app = Flask(__name__)
 
@@ -104,13 +104,18 @@ def evaluate():
         df = pd.read_csv(tmp_file_path)
 
         # Check if the necessary columns are present
-        required_columns = ['question', 'ground_truth', 'contexts']
+        required_columns = ['question', 'ground_truth']
         if not all(column in df.columns for column in required_columns):
-            return jsonify({"error": "CSV file must contain 'question', 'ground_truth', and 'contexts' columns"}), 400
+            return jsonify({"error": "CSV file must contain 'question' and 'ground_truth' columns"}), 400
 
-        # Remove the ground_truth column if it exists
-        if 'answer' in df.columns:
-            df = df.drop(columns=['answer'])
+        # Remove the contexts column if it exists
+        if 'contexts' in df.columns:
+            df = df.drop(columns=['contexts'])
+
+        # Query vector store and add contexts as a string in contexts column
+        df['contexts'] = df.apply(lambda row: " ".join(
+            [f"({idx + 1}). {item['metadata']['text']}" for idx, item in enumerate(query_pinecone("example1", row['question'], "ns6", 4))]
+        ), axis=1)
 
         # Generate ground_truth answers using the LLM
         df['answer'] = df.apply(lambda row: get_final_answer(row['contexts'], row['question']), axis=1)
@@ -133,6 +138,53 @@ def evaluate():
 
     finally:
         os.remove(tmp_file_path)
+
+import json
+
+
+@app.route('/multi_upload', methods=['POST'])
+def multi_upload():
+    if 'files' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+
+    files = request.files.getlist('files')
+    all_elements = []
+
+    for file in files:
+        if file.filename == '':
+            continue
+
+        with NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(file.read())
+            tmp_file_path = tmp_file.name
+
+        try:
+            element = preprocess_document(tmp_file_path)
+            all_elements.extend(element)
+        finally:
+            # Ensure the file is closed before attempting to delete it
+            tmp_file.close()
+            os.remove(tmp_file_path)
+
+    chunks = unstructured_chunk_by_title(all_elements, 2000, 200)
+    chunk_texts = [f"({idx + 1}). {chunk.text}" for idx, chunk in enumerate(chunks)]
+    chunks_combined = " ".join(chunk_texts)
+
+    # Call generate_qa with chunks_combined
+    qa_output = generate_qa(chunks_combined)
+
+    print(qa_output)
+    return (qa_output)
+
+    # Convert JSON output to string
+    # qa_output_str = json.dumps(qa_output, indent=4)
+
+    # # Create a temporary file for the txt
+    # with NamedTemporaryFile(delete=False, suffix=".txt") as tmp_output:
+    #     with open(tmp_output.name, 'w') as txtfile:
+    #         txtfile.write(qa_output_str)
+
+    # return send_file(tmp_output.name, as_attachment=True, download_name='qa_output.txt')
 
 if __name__ == '__main__':
     app.run(debug=True)
