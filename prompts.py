@@ -64,13 +64,84 @@ You are given a series of text chunks. Your task is to generate 10 Q&A pairs bas
 Ensure that:
 1. Each question is clear and directly related to the content of one chunk.
 2. Each answer is concise and derived solely from the corresponding chunk.
-3. There are exactly 10 Q&A pairs in your response.
-4. The output must be a list  of dicts. Each dict must contain q and a as keys. 
+3. There are exactly {num} Q&A pairs in your response.
+4. The output must be a list  of dicts. Each dict must contain q, a, reference and type (fill in value for type as 'basic') as keys (must be enclosed in double quotes). 
 
 Here are the chunks for your reference:
 
 {chunkss}
 
+
+"""
+
+generate_qa_single = """
+
+You are given a series of text chunks. Your task is to generate 10 Q&A pairs based on these chunks. Each question must be answerable by one specific chunk only. 
+
+Ensure that:
+1. Each question is clear and directly related to the content of one chunk.
+2. Each answer is concise and derived solely from the corresponding chunk.
+3. There are exactly {num} Q&A pairs in your response.
+4. The output must be a list  of dicts. Each dict must contain q, a, reference and type (fill in value for type as 'single') as keys. 
+
+Here are the chunks for your reference:
+
+{chunkss}
+
+
+
+"""
+
+generate_qa_multi = """
+
+You are given a series of text chunks. Your task is to generate 10 Q&A pairs based on these chunks. Each question must require multiple pieces of context (maximum 4) to answer. 
+
+Ensure that:
+1. Each question is clear and directly related to the content of multiple chunks.
+2. Each answer is concise and derived from the corresponding chunks.
+3. There are exactly {num} Q&A pairs in your response.
+4. The output must be a list  of dicts. Each dict must contain q, a, reference and type (fill in value for type as 'multi') as keys. 
+
+Here are the chunks for your reference:
+
+{chunkss}
+
+
+"""
+
+generate_qa_reasoning = """
+
+You are given a series of text chunks. Your task is to generate 10 Q&A pairs based on these chunks. Each question must require the LLM's reasoning along with context (maximum of 3 chunks) to answer.
+
+Ensure that:
+1. Each question is clear and directly related to the content of the chunks.
+2. Each answer is concise and derived from the corresponding chunks combined with the LLM's reasoning.
+3. There are exactly {num} Q&A pairs in your response.
+4. The output must be a list  of dicts. Each dict must contain q, a, reference and type (fill in value for type as 'reasoning') as keys. 
+
+Here are the chunks for your reference:
+
+{chunkss}
+
+"""
+generate_qa_combined = """
+
+You are given a series of text chunks. Your task is to generate Q&A pairs based on these chunks. The questions should be a mix of single, multi, and reasoning types.
+
+Explanations:
+- Single: Questions that can be answered by one specific chunk only.
+- Multi: Questions that require multiple pieces of context (maximum 4) from different chunks to answer.
+- Reasoning: Questions that require the LLM's reasoning along with context (maximum of 3 chunks) to answer.
+
+
+Ensure that:
+1. The distribution of Q&A pairs is as follows: {num} pairs of type 'single', {num1} pairs of type 'multi', and {num2} pairs of type 'reasoning'.
+2. The output must be a list of dicts. Each dict must contain q, a, reference, and type (single or multi or reasoning) as keys.
+
+
+Here are the chunks for your reference:
+
+{chunkss}
 
 """
 

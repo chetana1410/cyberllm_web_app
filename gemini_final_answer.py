@@ -5,7 +5,7 @@ from vertexai.generative_models import GenerativeModel
 import prompts
 import importlib
 importlib.reload(prompts)
-from prompts import final_answer_prompt, generate_qa_prompt
+from prompts import final_answer_prompt, generate_qa_prompt, generate_qa_single, generate_qa_multi, generate_qa_reasoning, generate_qa_combined
 
 def get_final_answer(context: str, query: str) -> str:
     project = "736225251813"
@@ -81,14 +81,25 @@ def get_final_answer(context: str, query: str) -> str:
 
 #     return response_content
 
-def generate_qa(chunks: str):
+def generate_qa(num: int, chunks: str, prompt_type: str = 'basic', num1: int = 2, num2: int = 2):
     project = "736225251813"
     endpoint_id = "gemini-1.5-pro-001"
     location = "us-central1"
     key_path = "application_default_credentials.json"
 
     # Define the prompt
-    prompt = generate_qa_prompt.format(chunkss = chunks)
+    if prompt_type == "basic":
+        prompt = generate_qa_prompt.format(num=num, chunkss=chunks)
+    elif prompt_type == "single":
+        prompt = generate_qa_single.format(num=num, chunkss=chunks)
+    elif prompt_type == "multi":
+        prompt = generate_qa_multi.format(num=num, chunkss=chunks)
+    elif prompt_type == "reasoning":
+        prompt = generate_qa_reasoning.format(num=num, chunkss=chunks)
+    elif prompt_type == "combined":
+        prompt = generate_qa_combined.format(num=num, num1 = num, num2 = num, chunkss=chunks)
+    else:
+        raise ValueError("Invalid prompt_type. Must be one of: basic, single, multi, reasoning, combined.")
 
     # Initialize Vertex AI with the specified project and location
     vertexai.init(project=project, location=location)

@@ -148,6 +148,8 @@ def multi_upload():
         return jsonify({"error": "No file part in the request"}), 400
 
     files = request.files.getlist('files')
+    num_questions = int(request.form.get('num_questions', 5))  # Default to 5 if not provided
+    prompt_type = request.form.get('prompt_type', 'basic')
     all_elements = []
 
     for file in files:
@@ -170,11 +172,12 @@ def multi_upload():
     chunk_texts = [f"({idx + 1}). {chunk.text}" for idx, chunk in enumerate(chunks)]
     chunks_combined = " ".join(chunk_texts)
 
-    # Call generate_qa with chunks_combined
-    qa_output = generate_qa(chunks_combined)
+    # Call generate_qa with chunks_combined and num_questions
+    qa_output = generate_qa(num=num_questions, chunks=chunks_combined, prompt_type = prompt_type)
 
     print(qa_output)
     return (qa_output)
+
 
     # Convert JSON output to string
     # qa_output_str = json.dumps(qa_output, indent=4)

@@ -174,6 +174,12 @@ import json
 def multi_upload_interface():
     st.title("Multi-Document Upload")
     uploaded_files = st.file_uploader("Upload documents", accept_multiple_files=True, key='multi_upload', type=["pdf", "docx", "txt"])
+    num_questions = st.number_input("Enter the number of questions to generate per document", min_value=1, value=5)
+    
+    prompt_type = st.selectbox(
+        "Select prompt type",
+        ["single", "multi", "reasoning", "combined"]
+    )
 
     col1, col2 = st.columns(2)
     with col1:
@@ -184,39 +190,34 @@ def multi_upload_interface():
     if uploaded_files and submit_button:
         with st.spinner("Processing documents..."):
             files = [("files", file) for file in uploaded_files]
-            response = requests.post("http://127.0.0.1:5000/multi_upload", files=files)
+            data = {"num_questions": num_questions, "prompt_type": prompt_type}
+            response = requests.post("http://127.0.0.1:5000/multi_upload", files=files, data=data)
 
             if response.status_code == 200:
                 st.success("Documents processed. Download the results below.")
                 
-                # Debugging: Output raw response content
                 raw_response_content = response.content.decode('utf-8')
                 st.write("Raw response content:", raw_response_content)
 
-                # Strip out the ```json ... ``` part
                 if raw_response_content.startswith('```json') and raw_response_content.endswith('```'):
                     json_content = raw_response_content[7:-4].strip()
                 else:
                     json_content = raw_response_content
 
-                # Ensure the response content is a valid JSON string
                 try:
                     qa_list = json.loads(json_content)
-                    st.write("QA List:", qa_list)  # Debugging: Check the content of qa_list
+                    st.write("QA List:", qa_list)
 
-                    # Ensure qa_list is a list of dictionaries
                     if isinstance(qa_list, list) and all(isinstance(item, dict) for item in qa_list):
                         df = pd.DataFrame(qa_list)
-                        df.rename(columns={'q': 'query', 'a': 'answer'}, inplace=True)
+                        df.rename(columns={'q': 'question', 'a': 'ground_truth'}, inplace=True)
 
-                        # Convert DataFrame to Excel
                         output = BytesIO()
                         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                             df.to_excel(writer, index=False, sheet_name='QA')
-                            writer.close()  # Use close instead of save
+                            writer.close()
                         output.seek(0)
 
-                        # Provide download button for Excel file
                         st.download_button(
                             label="Download QA Excel",
                             data=output,
@@ -234,6 +235,8 @@ def multi_upload_interface():
     if reset_button:
         reset_session()
         st.experimental_rerun()
+
+
 
 def reset_session():
     for key in st.session_state.keys():
